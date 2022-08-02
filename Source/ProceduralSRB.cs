@@ -239,6 +239,7 @@ namespace ProceduralParts
                 {
                     thrustTransform.SetParent(selectedBell.srbAttach, true);
                     thrustTransform.position = selectedBell.srbAttach.position;
+                    thrustTransform.localScale *= bellScale;
                 }
             }
         }
