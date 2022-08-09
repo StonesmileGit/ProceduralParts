@@ -8,7 +8,7 @@ using KSPAPIExtensions.Utils;
 namespace ProceduralParts
 {
 
-    public class ProceduralSRB : PartModule, IPartCostModifier
+    public class ProceduralSRB : PartModule, IPartCostModifier, IPartMassModifier
     {
         private const string ModTag = "[ProceduralSRB]";
         // ReSharper disable once InconsistentNaming
@@ -24,6 +24,13 @@ namespace ProceduralParts
 
         [KSPField]
         public bool debugMarkers = false;
+
+        #region IPartMassModifier implementation
+
+        public float GetModuleMass (float defaultMass, ModifierStagingSituation sit) => casingMass/1000f - defaultMass;
+        public ModifierChangeWhen GetModuleMassChangeWhen () => ModifierChangeWhen.FIXED;
+
+        #endregion
 
         #region Callbacks
 
@@ -41,7 +48,8 @@ namespace ProceduralParts
             fuelResource = GetFuelResource();
             LoadBells(srbConfigNodes);
             InitializeBells();
-            UpdateMaxThrust(false);
+            // UpdateMaxThrust(false);
+            UpdateSRBStats();
         }
 
         public override void OnSave(ConfigNode node) => node.SetValue("isEnabled", "True");
@@ -58,7 +66,8 @@ namespace ProceduralParts
             fuelResource = GetFuelResource();
             LoadBells(srbConfigNodes);
             InitializeBells();
-            UpdateMaxThrust(false);
+            // UpdateMaxThrust(false);
+            UpdateSRBStats();
 
             if (HighLogic.LoadedSceneIsEditor)
             {
@@ -70,11 +79,27 @@ namespace ProceduralParts
                 Fields[nameof(thrustDeflection)].uiControlEditor.onFieldChanged += HandleBellDeflectionChange;
                 Fields[nameof(thrustDeflection)].uiControlEditor.onSymmetryFieldChanged += HandleBellDeflectionChange;
 
-                Fields[nameof(burnTimeME)].uiControlEditor.onFieldChanged += HandleBurnTimeChange;
-                Fields[nameof(burnTimeME)].uiControlEditor.onSymmetryFieldChanged += HandleBurnTimeChange;
+                // Fields[nameof(burnTimeME)].uiControlEditor.onFieldChanged += HandleBurnTimeChange;
+                // Fields[nameof(burnTimeME)].uiControlEditor.onSymmetryFieldChanged += HandleBurnTimeChange;
 
-                Fields[nameof(thrust)].uiControlEditor.onFieldChanged += HandleThrustChange;
-                Fields[nameof(thrust)].uiControlEditor.onSymmetryFieldChanged += HandleThrustChange;
+                // Fields[nameof(thrust)].uiControlEditor.onFieldChanged += HandleThrustChange;
+                // Fields[nameof(thrust)].uiControlEditor.onSymmetryFieldChanged += HandleThrustChange;
+
+                // Fields[nameof(thrust)].uiControlEditor.onFieldChanged += HandleSRBStatsChange;
+                // Fields[nameof(thrust)].uiControlEditor.onSymmetryFieldChanged += HandleSRBStatsChange;
+
+                Fields[nameof(combustionPressure)].uiControlEditor.onFieldChanged += HandleSRBStatsChange;
+                Fields[nameof(combustionPressure)].uiControlEditor.onSymmetryFieldChanged += HandleSRBStatsChange;
+
+                Fields[nameof(selectedPropellantName)].guiActiveEditor = ProceduralSolidsLibrary.PSLSettings.propellantConfigs.Count > 1;
+                (Fields[nameof(selectedPropellantName)].uiControlEditor as UI_ChooseOption).options = ProceduralSolidsLibrary.PSLSettings.propellantConfigs.Keys.ToArray();
+                Fields[nameof(selectedPropellantName)].uiControlEditor.onFieldChanged += HandleSRBStatsChange;
+                Fields[nameof(selectedPropellantName)].uiControlEditor.onSymmetryFieldChanged += HandleSRBStatsChange;
+
+                Fields[nameof(selectedCasingMaterialName)].guiActiveEditor = ProceduralSolidsLibrary.PSLSettings.casingMaterialConfigs.Count > 1;
+                (Fields[nameof(selectedCasingMaterialName)].uiControlEditor as UI_ChooseOption).options = ProceduralSolidsLibrary.PSLSettings.casingMaterialConfigs.Keys.ToArray();
+                Fields[nameof(selectedCasingMaterialName)].uiControlEditor.onFieldChanged += HandleSRBStatsChange;
+                Fields[nameof(selectedCasingMaterialName)].uiControlEditor.onSymmetryFieldChanged += HandleSRBStatsChange;
 
                 Fields[nameof(thrust)].guiActiveEditor = !UsingME;
                 if (!UsingME)
@@ -110,7 +135,8 @@ namespace ProceduralParts
         public void OnResourceMaxChanged(BaseEventDetails _)
         {
             if (HighLogic.LoadedSceneIsEditor)
-                UpdateMaxThrust(true);
+                // UpdateMaxThrust(true);
+                UpdateSRBStats(true);
         }
 
         [KSPEvent(active = true)]
@@ -122,7 +148,8 @@ namespace ProceduralParts
                 node.id == bottomAttachNodeName)
             {
                 attachedEndSize = minDia;
-                UpdateMaxThrust(false);
+                // UpdateMaxThrust(false);
+                UpdateSRBStats();
             }
         }
 
@@ -131,6 +158,13 @@ namespace ProceduralParts
         {
             if (data.Get<AttachNode>("node") is AttachNode node && node == bottomAttachNode)
                 SetBellAndBottomNodePositionAndRotation();
+        }
+
+        [KSPEvent(active = true)]
+        public void OnPartModelChanged(BaseEventDetails _)
+        {
+            if (HighLogic.LoadedSceneIsEditor)
+                UpdateSRBStats(true);
         }
 
         #endregion
@@ -358,12 +392,37 @@ namespace ProceduralParts
         [KSPField(guiName = "Isp", guiActiveEditor = true, groupName = PAWGroupName)]
         public string srbISP;
 
-        [KSPField(isPersistant = true, guiName = "Thrust", guiActive = true, guiActiveEditor = true, guiFormat = "F3", guiUnits = "kN", groupName = PAWGroupName, groupDisplayName = PAWGroupDisplayName),
-         UI_FloatEdit(scene = UI_Scene.Editor, minValue = 1f, maxValue = float.PositiveInfinity, incrementLarge = 100f, incrementSmall = 10, incrementSlide = 1f, sigFigs = 5, unit = "kN", useSI = true)]
+        // [KSPField(isPersistant = true, guiName = "Thrust", guiActive = true, guiActiveEditor = true, guiFormat = "F3", guiUnits = "kN", groupName = PAWGroupName, groupDisplayName = PAWGroupDisplayName),
+        //  UI_FloatEdit(scene = UI_Scene.Editor, minValue = 1f, maxValue = float.PositiveInfinity, incrementLarge = 100f, incrementSmall = 10, incrementSlide = 1f, sigFigs = 5, unit = "kN", useSI = true)]
+        // public float thrust = 250;
+
+        [KSPField(isPersistant = true)]
         public float thrust = 250;
 
         [KSPField(guiActiveEditor = true, guiName = "Thrust", groupName = PAWGroupName)]
         public string thrustStats;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Propellant", groupName = PAWGroupName, groupDisplayName = PAWGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string selectedPropellantName;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Casing material", groupName = PAWGroupName, groupDisplayName = PAWGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string selectedCasingMaterialName;
+
+        // [KSPField(guiActiveEditor = true, guiName = "Combustion Pressure", groupName = PAWGroupName)]
+        // public string combustionPressure;
+
+        [KSPField(isPersistant = true, guiName = "Pressure", guiActive = true, guiActiveEditor = true, guiUnits = "Pa", groupName = PAWGroupName, groupDisplayName = PAWGroupDisplayName),
+         UI_FloatEdit(scene = UI_Scene.Editor, minValue = 1f, maxValue = float.PositiveInfinity, incrementLarge = 100f, incrementSmall = 10, incrementSlide = 1f, sigFigs = 5, unit = "Pa", useSI = true)]
+        public float combustionPressure = 250;
+
+        [KSPField(guiActiveEditor = true, guiName = "Calculated Isp", groupName = PAWGroupName)]
+        public string Isp;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Casing thickness", groupName = PAWGroupName, guiUnits = "cm")]
+        public float casingThickness;
+
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Casing mass", groupName = PAWGroupName, guiUnits = "kg")]
+        public float casingMass;
 
         [KSPField(isPersistant = true, guiName = "Burn Time", guiActive = true, guiActiveEditor = true, guiFormat = "F1", guiUnits = "s", groupName = PAWGroupName),
          UI_FloatEdit(scene = UI_Scene.Editor, minValue = 1f, maxValue = 600f, incrementLarge = 60f, incrementSmall = 5, incrementSlide = 0.1f, unit = "s", sigFigs = 1)]
@@ -390,6 +449,84 @@ namespace ProceduralParts
         private float FuelMassG => fuelResource is PartResource
                                     ? (float)fuelResource.maxAmount * fuelResource.info.density * Engine.g
                                     : UsingME ? 7.454f : 30.75f;
+
+        private ProceduralSolidsLibrary.PropellantConfig selectedPropellant;
+        private void UpdateSelectedPropellant()
+        {
+            if (string.IsNullOrEmpty(selectedPropellantName) || !ProceduralSolidsLibrary.PSLSettings.propellantConfigs.ContainsKey(selectedPropellantName))
+                selectedPropellantName = ProceduralSolidsLibrary.PSLSettings.propellantConfigs.First().Key;
+            selectedPropellant = ProceduralSolidsLibrary.PSLSettings.propellantConfigs[selectedPropellantName];
+        }
+
+        private ProceduralSolidsLibrary.CasingMaterialConfig selectedCasingMaterial;
+        private void UpdateSelectedCasingMaterial()
+        {
+            if (string.IsNullOrEmpty(selectedCasingMaterialName) || !ProceduralSolidsLibrary.PSLSettings.casingMaterialConfigs.ContainsKey(selectedCasingMaterialName))
+                selectedCasingMaterialName = ProceduralSolidsLibrary.PSLSettings.casingMaterialConfigs.First().Key;
+            selectedCasingMaterial = ProceduralSolidsLibrary.PSLSettings.casingMaterialConfigs[selectedCasingMaterialName];
+        }
+
+        private ProceduralSolidsLibrary.SolidsSolver _SRBStats;
+        private ProceduralSolidsLibrary.SolidsSolver SRBStats
+        {
+            get
+            {
+                if (_SRBStats == null)
+                {
+                    UpdateSelectedPropellant();
+                    UpdateSelectedCasingMaterial();
+                    // _SRBStats = ProceduralSolidsLibrary.SolidsSolver.ThrustAsInput(selectedPropellant, selectedCasingMaterial, thrust);
+                    _SRBStats = ProceduralSolidsLibrary.SolidsSolver.PressureAsInput(selectedPropellant, selectedCasingMaterial, combustionPressure);
+                }
+                return _SRBStats;
+            }
+        }
+
+        private void UpdateSRBStats(bool fireEvent = false)
+        {
+            if (selectedBell == null)
+                return;
+            UpdateSRBInputs();
+            UpdateSRBOutputs();
+
+            UpdateThrustDependentCalcs();
+            float bellScale1m = selectedBell.chokeEndRatio / selectedBell.bellChokeDiameter;
+            bellScale = bellScale1m * Mathf.Sqrt(4f / Mathf.PI * SRBStats.ThroatArea);
+            UpdateEngineAndBellScale();
+            SetBellAndBottomNodePositionAndRotation();
+            TranslateAndRotateAttachedPart(selectedBell.srbAttach.position, Vector3.forward, thrustDeflection);
+            UpdateFAR();
+
+            if (HighLogic.LoadedSceneIsEditor && fireEvent)
+                GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
+        }
+
+        private void UpdateSRBInputs()
+        {
+            UpdateSelectedPropellant();
+            SRBStats.propellant = selectedPropellant;
+            UpdateSelectedCasingMaterial();
+            SRBStats.casing.material = selectedCasingMaterial;
+
+            SRBStats.Length = GetLength();
+            SRBStats.Diameter = GetDiameter();
+            SRBStats.Thrust = thrust * 1000f; // KSP thrust is in kN, solver is in N
+            SRBStats.CombustionPressure = combustionPressure;
+        }
+
+        private void UpdateSRBOutputs()
+        {
+            if (SRBStats.CombustionPressure != float.PositiveInfinity)
+            {
+                // combustionPressure = $"{SRBStats.CombustionPressure.ToStringSI(unit: "Pa")}";
+                combustionPressure = SRBStats.CombustionPressure;
+            }
+            Isp = $"{SRBStats.Isp} s";
+            burnTimeME = SRBStats.BurnTime;
+            casingThickness = SRBStats.casing.Thickness * 100f; // Display in cm
+            casingMass = SRBStats.casing.Mass;
+            thrust = SRBStats.Thrust / 1000f;
+        }
 
         private void UpdateMaxThrust(bool fireEvent = false)
         {
@@ -477,7 +614,8 @@ namespace ProceduralParts
         public void OnEngineConfigurationChanged()
         {
             fuelResource = GetFuelResource();
-            UpdateMaxThrust();
+            // UpdateMaxThrust();
+            UpdateSRBStats();
         }
 
         public void UpdateFAR()
@@ -511,12 +649,18 @@ namespace ProceduralParts
 
         #region ChangeHandlers
 
+        private void HandleSRBStatsChange(BaseField f, object obj)
+        {
+            UpdateSRBStats();
+        }
+
         private void HandleBellTypeChange(BaseField f, object obj)
         {
             selectedBell.model.gameObject.SetActive(false);
             selectedBell = srbConfigs[selectedBellName];
             InitModulesFromBell();
-            UpdateMaxThrust();
+            // UpdateMaxThrust();
+            UpdateSRBStats();
         }
 
         private void HandleBellDeflectionChange(BaseField f, object obj)
@@ -526,20 +670,20 @@ namespace ProceduralParts
         }
 
         // User changed thrust, automatically adjust burntime
-        private void HandleThrustChange(BaseField f, object obj)
-        {
-            AlignBurnTimeToThrust();
-            UpdateMaxThrust(false);
-        }
+        // private void HandleThrustChange(BaseField f, object obj)
+        // {
+        //     AlignBurnTimeToThrust();
+        //     UpdateMaxThrust(false);
+        // }
 
         // User changed burntime, automatically adjust thrust
-        private void HandleBurnTimeChange(BaseField f, object obj)
-        {
-            AlignThrustToBurnTime();
-            UpdateMaxThrust(false);
-            if (ModularEnginesChangeThrust != null)
-                DelayedUpdateMEThrust();
-        }
+        // private void HandleBurnTimeChange(BaseField f, object obj)
+        // {
+        //     AlignThrustToBurnTime();
+        //     UpdateMaxThrust(false);
+        //     if (ModularEnginesChangeThrust != null)
+        //         DelayedUpdateMEThrust();
+        // }
 
         private void AlignBurnTimeToThrust()
         {
@@ -593,6 +737,19 @@ namespace ProceduralParts
                 ProceduralShapeCylinder cyl => cyl.length,
                 ProceduralShapePill pill => pill.length,
                 ProceduralShapePolygon poly => poly.length,
+                _ => 0f,
+            };
+        }
+
+        private float GetDiameter()
+        {
+            return PPart.CurrentShape switch
+            {
+                ProceduralShapeBezierCone cone => (cone.bottomDiameter + cone.topDiameter)/2f,
+                ProceduralShapeCone cone => (cone.bottomDiameter + cone.topDiameter)/2f,
+                ProceduralShapeCylinder cyl => cyl.diameter,
+                ProceduralShapePill pill => pill.diameter,
+                ProceduralShapePolygon poly => poly.diameter,
                 _ => 0f,
             };
         }

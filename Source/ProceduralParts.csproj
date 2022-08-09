@@ -96,6 +96,9 @@
     <Reference Include="UnityEngine.UI">
       <HintPath>..\..\..\..\..\..\Games\KSP_win_1.3.1\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
+    <Reference Include="ProceduralSolidsLibrary">
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DecouplerTweaker.cs" />
